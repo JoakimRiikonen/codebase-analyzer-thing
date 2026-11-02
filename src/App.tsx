@@ -20,6 +20,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileTree, setFileTree] = useState<FileEntry[]>([]);
+  const [excludedPaths, setExcludedPaths] = useState<Set<string>>(new Set());
+  const [includedPaths, setIncludedPaths] = useState<Set<string>>(new Set());
 
   const availableExtensions = useMemo(() => {
     if (!graph) return [];
@@ -30,28 +32,58 @@ export default function App() {
     return [...exts].sort();
   }, [graph]);
 
+  const isPathExcluded = useCallback((path: string) => {
+    let deepestRule = "";
+    let excluded = false;
+    for (const ep of excludedPaths) {
+      if (ep === path || path.startsWith(ep + "/")) {
+        if (ep.length > deepestRule.length) {
+          deepestRule = ep;
+          excluded = true;
+        }
+      }
+    }
+    for (const ip of includedPaths) {
+      if (ip === path || path.startsWith(ip + "/")) {
+        if (ip.length > deepestRule.length) {
+          deepestRule = ip;
+          excluded = false;
+        }
+      }
+    }
+    return excluded;
+  }, [excludedPaths, includedPaths]);
+
+  const filteredGraph = useMemo(() => {
+    if (!graph || excludedPaths.size === 0) return graph;
+    const nodes = graph.nodes.filter((n) => !isPathExcluded(n.id));
+    const nodeIds = new Set(nodes.map((n) => n.id));
+    const edges = graph.edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
+    return { nodes, edges };
+  }, [graph, excludedPaths, includedPaths, isPathExcluded]);
+
   const graphPaths = useMemo(() => {
-    if (!graph) return new Set<string>();
-    return new Set(graph.nodes.filter((n) => !n.isExternal).map((n) => n.id));
-  }, [graph]);
+    if (!filteredGraph) return new Set<string>();
+    return new Set(filteredGraph.nodes.filter((n) => !n.isExternal).map((n) => n.id));
+  }, [filteredGraph]);
 
   const dependencyPaths = useMemo(() => {
-    if (!graph || !selectedNode) return new Set<string>();
+    if (!filteredGraph || !selectedNode) return new Set<string>();
     const deps = new Set<string>();
-    for (const edge of graph.edges) {
+    for (const edge of filteredGraph.edges) {
       if (edge.source === selectedNode.id) deps.add(edge.target);
     }
     return deps;
-  }, [graph, selectedNode]);
+  }, [filteredGraph, selectedNode]);
 
   const dependentPaths = useMemo(() => {
-    if (!graph || !selectedNode) return new Set<string>();
+    if (!filteredGraph || !selectedNode) return new Set<string>();
     const deps = new Set<string>();
-    for (const edge of graph.edges) {
+    for (const edge of filteredGraph.edges) {
       if (edge.target === selectedNode.id) deps.add(edge.source);
     }
     return deps;
-  }, [graph, selectedNode]);
+  }, [filteredGraph, selectedNode]);
 
   const handleOpenProject = useCallback(async () => {
     const selected = await open({ directory: true, multiple: false });
@@ -62,6 +94,8 @@ export default function App() {
     setSelectedNode(null);
     setGraph(null);
     setFileTree([]);
+    setExcludedPaths(new Set());
+    setIncludedPaths(new Set());
 
     try {
       const [result, tree] = await Promise.all([
@@ -82,11 +116,37 @@ export default function App() {
 
   const handleFileSelect = useCallback(
     (path: string) => {
-      const node = graph?.nodes.find((n) => n.id === path) ?? null;
+      const node = filteredGraph?.nodes.find((n) => n.id === path) ?? null;
       setSelectedNode(node);
     },
-    [graph],
+    [filteredGraph],
   );
+
+  const handleToggleExclude = useCallback((path: string) => {
+    if (isPathExcluded(path)) {
+      setIncludedPaths((prev) => {
+        const next = new Set(prev);
+        next.add(path);
+        return next;
+      });
+      setExcludedPaths((prev) => {
+        const next = new Set(prev);
+        next.delete(path);
+        return next;
+      });
+    } else {
+      setExcludedPaths((prev) => {
+        const next = new Set(prev);
+        next.add(path);
+        return next;
+      });
+      setIncludedPaths((prev) => {
+        const next = new Set(prev);
+        next.delete(path);
+        return next;
+      });
+    }
+  }, [isPathExcluded]);
 
   return (
     <div className={styles.app}>
@@ -118,7 +178,9 @@ export default function App() {
           selectedPath={selectedNode?.id ?? null}
           dependencyPaths={dependencyPaths}
           dependentPaths={dependentPaths}
+          isPathExcluded={isPathExcluded}
           onSelectFile={handleFileSelect}
+          onToggleExclude={handleToggleExclude}
         />
         <div className={styles.graphPanel}>
           {error && (
@@ -140,7 +202,7 @@ export default function App() {
             </div>
           )}
           <GraphView
-            graph={graph}
+            graph={filteredGraph}
             layout={layout}
             showFullPath={showFullPath}
             showExternal={showExternal}
@@ -149,7 +211,7 @@ export default function App() {
             onSelectNode={setSelectedNode}
           />
         </div>
-        <Sidebar graph={graph} selectedNode={selectedNode} />
+        <Sidebar graph={filteredGraph} selectedNode={selectedNode} />
       </div>
     </div>
   );

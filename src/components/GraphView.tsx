@@ -202,14 +202,17 @@ export default function GraphView({
     };
   }, [initCytoscape]);
 
+  const buildIdRef = useRef(0);
+
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy || !graph) return;
 
+    const buildId = ++buildIdRef.current;
+
     cy.elements().remove();
 
     const elements: cytoscape.ElementDefinition[] = [];
-
     const visibleNodes = new Set<string>();
 
     for (const node of graph.nodes) {
@@ -251,30 +254,49 @@ export default function GraphView({
       });
     }
 
-    cy.startBatch();
-    cy.add(elements);
-    cy.endBatch();
+    const CHUNK_SIZE = 200;
+    let offset = 0;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const layoutOptions: any = {
-      name: layout === "cose" ? "fcose" : layout,
-      animate: false,
-    };
-    if (layout === "cose") {
-      layoutOptions.quality = "proof";
-      layoutOptions.nodeRepulsion = () => 20000;
-      layoutOptions.idealEdgeLength = () => 120;
-      layoutOptions.edgeElasticity = () => 0.45;
-      layoutOptions.gravity = 0.1;
-      layoutOptions.gravityRange = 1.5;
-      layoutOptions.nodeSeparation = 150;
-      layoutOptions.randomize = true;
-      layoutOptions.packComponents = true;
-    } else {
-      layoutOptions.spacingFactor = 1.75;
+    function addChunk() {
+      if (buildId !== buildIdRef.current) return;
+      const chunk = elements.slice(offset, offset + CHUNK_SIZE);
+      if (chunk.length === 0) {
+        runLayout();
+        return;
+      }
+      cy.startBatch();
+      cy.add(chunk);
+      cy.endBatch();
+      offset += CHUNK_SIZE;
+      requestAnimationFrame(addChunk);
     }
-    cy.layout(layoutOptions).run();
-    cy.fit(undefined, 40);
+
+    function runLayout() {
+      if (buildId !== buildIdRef.current) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const layoutOptions: any = {
+        name: layout === "cose" ? "fcose" : layout,
+        animate: layout === "cose" ? "end" : false,
+        animationDuration: 0,
+      };
+      if (layout === "cose") {
+        layoutOptions.quality = "proof";
+        layoutOptions.nodeRepulsion = () => 20000;
+        layoutOptions.idealEdgeLength = () => 120;
+        layoutOptions.edgeElasticity = () => 0.45;
+        layoutOptions.gravity = 0.1;
+        layoutOptions.gravityRange = 1.5;
+        layoutOptions.nodeSeparation = 150;
+        layoutOptions.randomize = true;
+        layoutOptions.packComponents = true;
+      } else {
+        layoutOptions.spacingFactor = 1.75;
+      }
+      cy.layout(layoutOptions).run();
+      cy.fit(undefined, 40);
+    }
+
+    requestAnimationFrame(addChunk);
   }, [graph, layout, showExternal, hiddenExtensions]);
 
   useEffect(() => {
