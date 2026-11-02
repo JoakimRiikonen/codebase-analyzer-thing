@@ -1,14 +1,15 @@
-import cytoscape, { type Core } from "cytoscape";
-import fcose from "cytoscape-fcose";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
+import Sigma from "sigma";
+import { extremityArrow } from "sigma/rendering";
+import Graph from "graphology";
+import forceAtlas2 from "graphology-layout-forceatlas2";
+import { circular } from "graphology-layout";
 import type { DependencyGraph, GraphNode, LayoutName } from "../types";
 import styles from "./GraphView.module.css";
 
-cytoscape.use(fcose);
-
-const NODE_SIZE_MIN = 5;
-const NODE_SIZE_MAX = 60;
-const NODE_SIZE_EXTERNAL = 20;
+const NODE_SIZE_MIN = 3;
+const NODE_SIZE_MAX = 20;
+const NODE_SIZE_EXTERNAL = 8;
 
 function hashString(str: string): number {
   let hash = 5381;
@@ -49,170 +50,42 @@ export default function GraphView({
   onSelectNode,
 }: GraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const cyRef = useRef<Core | null>(null);
+  const sigmaRef = useRef<Sigma | null>(null);
+  const graphologyRef = useRef<Graph | null>(null);
+  const graphDataRef = useRef<DependencyGraph | null>(null);
+  const onSelectNodeRef = useRef(onSelectNode);
+  const showFullPathRef = useRef(showFullPath);
 
-  const initCytoscape = useCallback(() => {
-    if (!containerRef.current) return;
+  useEffect(() => {
+    onSelectNodeRef.current = onSelectNode;
+  }, [onSelectNode]);
 
-    if (cyRef.current) {
-      cyRef.current.destroy();
+  useEffect(() => {
+    showFullPathRef.current = showFullPath;
+  }, [showFullPath]);
+
+  const highlightRef = useRef<{
+    node: string;
+    deps: Set<string>;
+    dependents: Set<string>;
+  } | null>(null);
+
+  useEffect(() => {
+    sigmaRef.current?.kill();
+    sigmaRef.current = null;
+    graphologyRef.current = null;
+    highlightRef.current = null;
+
+    if (!containerRef.current || !graph) {
+      graphDataRef.current = null;
+      return;
     }
 
-    cyRef.current = cytoscape({
-      container: containerRef.current,
-      style: [
-        {
-          selector: "node",
-          style: {
-            label: "data(label)",
-            "background-color": "data(color)",
-            color: "#e0e0e0",
-            "font-size": "10px",
-            "text-valign": "bottom",
-            "text-margin-y": 6,
-            "min-zoomed-font-size": 8,
-            width: "data(size)",
-            height: "data(size)",
-            "border-width": 1,
-            "border-color": "#555",
-            "text-outline-color": "#1a1a2e",
-            "text-outline-width": 2,
-          },
-        },
-        {
-          selector: "node.external",
-          style: {
-            shape: "diamond",
-            "border-style": "dashed",
-            "border-color": "#cb3837",
-          },
-        },
-        {
-          selector: "node:selected",
-          style: {
-            "border-width": 3,
-            "border-color": "#7c3aed",
-            "background-color": "#7c3aed",
-          },
-        },
-        {
-          selector: "node.highlighted",
-          style: {
-            "border-width": 2,
-            "border-color": "#22d3ee",
-          },
-        },
-        {
-          selector: "node.dimmed",
-          style: {
-            opacity: 0.15,
-          },
-        },
-        {
-          selector: "edge",
-          style: {
-            width: 1,
-            "line-color": "#444",
-            "target-arrow-color": "#444",
-            "target-arrow-shape": "triangle",
-            "curve-style": "bezier",
-            "arrow-scale": 0.8,
-          },
-        },
-        {
-          selector: "edge.circular",
-          style: {
-            "line-color": "#ef4444",
-            "target-arrow-color": "#ef4444",
-            "line-style": "dashed",
-            width: 2,
-          },
-        },
-        {
-          selector: "edge.dependency",
-          style: {
-            "line-color": "#ef4444",
-            "target-arrow-color": "#ef4444",
-            width: 2,
-          },
-        },
-        {
-          selector: "edge.dependent",
-          style: {
-            "line-color": "#22c55e",
-            "target-arrow-color": "#22c55e",
-            width: 2,
-          },
-        },
-        {
-          selector: "edge.dimmed",
-          style: {
-            opacity: 0.08,
-          },
-        },
-      ],
-      minZoom: 0.1,
-      maxZoom: 5,
-      wheelSensitivity: 3,
-    });
+    graphDataRef.current = graph;
 
-    cyRef.current.on("tap", "node", (evt) => {
-      const nodeId = evt.target.id();
-      const node = graph?.nodes.find((n) => n.id === nodeId) ?? null;
-      onSelectNode(node);
-      highlightConnected(evt.target);
-    });
+    const g = new Graph({ type: "directed" });
+    graphologyRef.current = g;
 
-    cyRef.current.on("tap", (evt) => {
-      if (evt.target === cyRef.current) {
-        onSelectNode(null);
-        clearHighlights();
-      }
-    });
-
-  }, [graph, onSelectNode]);
-
-  const highlightConnected = useCallback((node: cytoscape.NodeSingular) => {
-    const cy = cyRef.current;
-    if (!cy) return;
-
-    cy.elements().addClass("dimmed").removeClass("dependency dependent highlighted");
-
-    node.removeClass("dimmed");
-    node.connectedEdges().forEach((edge) => {
-      edge.removeClass("dimmed");
-      if (edge.source().id() === node.id()) {
-        edge.addClass("dependency");
-        edge.target().removeClass("dimmed").addClass("highlighted");
-      } else {
-        edge.addClass("dependent");
-        edge.source().removeClass("dimmed").addClass("highlighted");
-      }
-    });
-  }, []);
-
-  const clearHighlights = useCallback(() => {
-    cyRef.current?.elements().removeClass("dimmed highlighted dependency dependent");
-  }, []);
-
-  useEffect(() => {
-    initCytoscape();
-    return () => {
-      cyRef.current?.destroy();
-    };
-  }, [initCytoscape]);
-
-  const buildIdRef = useRef(0);
-
-  useEffect(() => {
-    const cy = cyRef.current;
-    if (!cy || !graph) return;
-
-    const buildId = ++buildIdRef.current;
-
-    cy.elements().remove();
-
-    const elements: cytoscape.ElementDefinition[] = [];
     const visibleNodes = new Set<string>();
 
     for (const node of graph.nodes) {
@@ -221,113 +94,167 @@ export default function GraphView({
       visibleNodes.add(node.id);
 
       const loc = node.lineCount || 1;
-      const size = node.isExternal ? NODE_SIZE_EXTERNAL : Math.max(NODE_SIZE_MIN, Math.min(NODE_SIZE_MAX, NODE_SIZE_MIN + Math.sqrt(loc) * 2));
+      const size = node.isExternal
+        ? NODE_SIZE_EXTERNAL
+        : Math.max(NODE_SIZE_MIN, Math.min(NODE_SIZE_MAX, NODE_SIZE_MIN + Math.sqrt(loc) * 0.8));
 
       const h = hashString(node.id);
       const h2 = hashString(node.id + "_y");
 
-      elements.push({
-        position: {
-          x: (h % 2000) - 1000,
-          y: (h2 % 2000) - 1000,
-        },
-        data: {
-          id: node.id,
-          label: showFullPath ? node.id : node.label,
-          color: EXT_COLORS[node.extension] ?? "#888",
-          size,
-        },
-        classes: node.isExternal ? "external" : undefined,
+      g.addNode(node.id, {
+        x: (h % 2000) - 1000,
+        y: (h2 % 2000) - 1000,
+        size,
+        color: EXT_COLORS[node.extension] ?? "#888888",
+        label: showFullPathRef.current ? node.id : node.label,
+        origColor: EXT_COLORS[node.extension] ?? "#888888",
       });
     }
 
-    for (let i = 0; i < graph.edges.length; i++) {
-      const edge = graph.edges[i];
+    for (const edge of graph.edges) {
       if (!visibleNodes.has(edge.source) || !visibleNodes.has(edge.target)) continue;
-      elements.push({
-        data: {
-          id: `e${i}`,
-          source: edge.source,
-          target: edge.target,
-        },
-        classes: edge.circular ? "circular" : undefined,
+      if (edge.source === edge.target) continue;
+      if (g.hasEdge(edge.source, edge.target)) continue;
+      g.addEdge(edge.source, edge.target, {
+        color: edge.circular ? "#ef4444" : "#555555",
+        origColor: edge.circular ? "#ef4444" : "#555555",
+        size: edge.circular ? 2 : 1,
       });
     }
 
-    const CHUNK_SIZE = 200;
-    let offset = 0;
+    const sigma = new Sigma(g, containerRef.current, {
+      primitives: {
+        edges: {
+          extremities: [extremityArrow({ lengthRatio: 4, widthRatio: 3 })],
+          defaultHead: "arrow",
+        },
+      },
+      settings: {
+        allowInvalidContainer: true,
+        labelRenderedSizeThreshold: 0,
+        stagePadding: 40,
+        zoomDuration: 100,
+        itemSizesReference: "screen",
+      },
+      styles: {
+        nodes: {
+          x: { attribute: "x" },
+          y: { attribute: "y" },
+          size: { attribute: "size", defaultValue: 8 },
+          color: { attribute: "color", defaultValue: "#888" },
+          label: { attribute: "label" },
+          labelColor: "#ffffff",
+          labelVisibility: "visible",
+        },
+        edges: {
+          size: { attribute: "size", defaultValue: 1 },
+          color: { attribute: "color", defaultValue: "#555" },
+        },
+        stage: {
+          color: "#0f0f1a",
+          labelColor: "#ffffff",
+          labelFont: "monospace",
+          labelSize: 11,
+        },
+      },
+      nodeReducer: (_node, data) => {
+        const hl = highlightRef.current;
+        if (!hl) return data;
+        if (_node === hl.node) return { ...data, highlighted: true, zIndex: 2 };
+        if (hl.deps.has(_node) || hl.dependents.has(_node)) return { ...data, zIndex: 1 };
+        return { ...data, color: "#333333", label: null, zIndex: 0 };
+      },
+      edgeReducer: (edge, data) => {
+        const hl = highlightRef.current;
+        if (!hl) return data;
+        const source = g.source(edge);
+        const target = g.target(edge);
+        if (source === hl.node) return { ...data, color: "#ef4444", size: 2 };
+        if (target === hl.node) return { ...data, color: "#22c55e", size: 2 };
+        return { ...data, visibility: "hidden" };
+      },
+    });
 
-    function addChunk() {
-      if (buildId !== buildIdRef.current) return;
-      const chunk = elements.slice(offset, offset + CHUNK_SIZE);
-      if (chunk.length === 0) {
-        runLayout();
-        return;
-      }
-      cy.startBatch();
-      cy.add(chunk);
-      cy.endBatch();
-      offset += CHUNK_SIZE;
-      requestAnimationFrame(addChunk);
+    sigmaRef.current = sigma;
+
+    sigma.on("clickNode", ({ node }) => {
+      const gd = graphDataRef.current;
+      const gNode = gd?.nodes.find((n) => n.id === node) ?? null;
+      onSelectNodeRef.current(gNode);
+    });
+
+    sigma.on("clickStage", () => {
+      onSelectNodeRef.current(null);
+    });
+
+    // Run layout
+    if (layout === "cose") {
+      const settings = forceAtlas2.inferSettings(g);
+      settings.gravity = 0.05;
+      settings.barnesHutOptimize = g.order > 200;
+      settings.slowDown = 5;
+      forceAtlas2.assign(g, { settings, iterations: Math.min(500, Math.max(100, g.order)) });
+    } else if (layout === "circle") {
+      circular.assign(g);
+    } else if (layout === "concentric") {
+      circular.assign(g);
+    } else if (layout === "grid") {
+      const nodes = g.nodes();
+      const cols = Math.ceil(Math.sqrt(nodes.length));
+      nodes.forEach((node, i) => {
+        g.setNodeAttribute(node, "x", (i % cols) * 10);
+        g.setNodeAttribute(node, "y", Math.floor(i / cols) * 10);
+      });
+    } else if (layout === "breadthfirst") {
+      const nodes = g.nodes().sort((a, b) => g.outDegree(b) - g.outDegree(a));
+      const cols = Math.ceil(Math.sqrt(nodes.length));
+      nodes.forEach((node, i) => {
+        g.setNodeAttribute(node, "x", (i % cols) * 10);
+        g.setNodeAttribute(node, "y", Math.floor(i / cols) * 10);
+      });
     }
 
-    function runLayout() {
-      if (buildId !== buildIdRef.current) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const layoutOptions: any = {
-        name: layout === "cose" ? "fcose" : layout,
-        animate: layout === "cose" ? "end" : false,
-        animationDuration: 0,
-      };
-      if (layout === "cose") {
-        layoutOptions.quality = "proof";
-        layoutOptions.nodeRepulsion = () => 20000;
-        layoutOptions.idealEdgeLength = () => 120;
-        layoutOptions.edgeElasticity = () => 0.45;
-        layoutOptions.gravity = 0.1;
-        layoutOptions.gravityRange = 1.5;
-        layoutOptions.nodeSeparation = 150;
-        layoutOptions.randomize = true;
-        layoutOptions.packComponents = true;
-      } else {
-        layoutOptions.spacingFactor = 1.75;
-      }
-      cy.layout(layoutOptions).run();
-      cy.fit(undefined, 40);
-    }
-
-    requestAnimationFrame(addChunk);
+    return () => {
+      sigmaRef.current?.kill();
+      sigmaRef.current = null;
+      graphologyRef.current = null;
+    };
   }, [graph, layout, showExternal, hiddenExtensions]);
 
+  // Handle selection changes
   useEffect(() => {
-    const cy = cyRef.current;
-    if (!cy || !graph) return;
+    const g = graphologyRef.current;
+    const sigma = sigmaRef.current;
 
-    for (const node of graph.nodes) {
-      const el = cy.getElementById(node.id);
-      if (el.length) {
-        el.data("label", showFullPath ? node.id : node.label);
-      }
-    }
-  }, [showFullPath, graph]);
-
-  useEffect(() => {
-    const cy = cyRef.current;
-    if (!cy) return;
-
-    if (!selectedNodeId) {
-      clearHighlights();
-      cy.nodes().unselect();
+    if (!selectedNodeId || !g || !sigma || !g.hasNode(selectedNodeId)) {
+      highlightRef.current = null;
+      sigma?.refresh();
       return;
     }
 
-    const el = cy.getElementById(selectedNodeId);
-    if (el.length && el.isNode()) {
-      cy.nodes().unselect();
-      el.select();
-      highlightConnected(el);
+    const deps = new Set<string>();
+    const dependents = new Set<string>();
+    g.forEachOutNeighbor(selectedNodeId, (neighbor) => deps.add(neighbor));
+    g.forEachInNeighbor(selectedNodeId, (neighbor) => dependents.add(neighbor));
+
+    highlightRef.current = { node: selectedNodeId, deps, dependents };
+    sigma.refresh();
+  }, [selectedNodeId]);
+
+  // Handle label toggle
+  useEffect(() => {
+    const g = graphologyRef.current;
+    const sigma = sigmaRef.current;
+    const gd = graphDataRef.current;
+    if (!g || !sigma || !gd) return;
+
+    for (const node of gd.nodes) {
+      if (g.hasNode(node.id)) {
+        g.setNodeAttribute(node.id, "label", showFullPath ? node.id : node.label);
+      }
     }
-  }, [selectedNodeId, highlightConnected, clearHighlights]);
+    sigma.refresh();
+  }, [showFullPath]);
 
   return <div ref={containerRef} className={styles.container} />;
 }

@@ -60,7 +60,7 @@ export default function App() {
     const nodeIds = new Set(nodes.map((n) => n.id));
     const edges = graph.edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
     return { nodes, edges };
-  }, [graph, excludedPaths, includedPaths, isPathExcluded]);
+  }, [graph, excludedPaths, isPathExcluded]);
 
   const graphPaths = useMemo(() => {
     if (!filteredGraph) return new Set<string>();
