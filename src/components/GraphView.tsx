@@ -1,7 +1,10 @@
 import cytoscape, { type Core } from "cytoscape";
+import fcose from "cytoscape-fcose";
 import { useCallback, useEffect, useRef } from "react";
 import type { DependencyGraph, GraphNode, LayoutName } from "../types";
 import styles from "./GraphView.module.css";
+
+cytoscape.use(fcose);
 
 const NODE_SIZE_MIN = 5;
 const NODE_SIZE_MAX = 60;
@@ -248,21 +251,25 @@ export default function GraphView({
       });
     }
 
+    cy.startBatch();
     cy.add(elements);
+    cy.endBatch();
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const layoutOptions: any = {
-      name: layout,
-      animate: true,
-      animationDuration: 500,
+      name: layout === "cose" ? "fcose" : layout,
+      animate: false,
     };
     if (layout === "cose") {
-      layoutOptions.randomize = false;
+      layoutOptions.quality = "proof";
       layoutOptions.nodeRepulsion = () => 20000;
-      layoutOptions.idealEdgeLength = () => 100;
-      layoutOptions.edgeElasticity = () => 200;
-      layoutOptions.gravity = 0.8;
-      layoutOptions.nodeOverlap = 40;
-      layoutOptions.numIter = 2000;
+      layoutOptions.idealEdgeLength = () => 120;
+      layoutOptions.edgeElasticity = () => 0.45;
+      layoutOptions.gravity = 0.1;
+      layoutOptions.gravityRange = 1.5;
+      layoutOptions.nodeSeparation = 150;
+      layoutOptions.randomize = true;
+      layoutOptions.packComponents = true;
     } else {
       layoutOptions.spacingFactor = 1.75;
     }

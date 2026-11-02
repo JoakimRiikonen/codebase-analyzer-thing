@@ -60,6 +60,8 @@ export default function App() {
     setLoading(true);
     setError(null);
     setSelectedNode(null);
+    setGraph(null);
+    setFileTree([]);
 
     try {
       const [result, tree] = await Promise.all([
