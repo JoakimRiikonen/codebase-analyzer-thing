@@ -1,11 +1,13 @@
 import { open } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useMemo, useState } from "react";
 import styles from "./App.module.css";
 import { analyzeDependencies } from "./analysis/analyzer";
+import FileExplorer from "./components/FileExplorer";
 import GraphView from "./components/GraphView";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
-import type { DependencyGraph, GraphNode, LayoutName } from "./types";
+import type { DependencyGraph, FileEntry, GraphNode, LayoutName } from "./types";
 
 export default function App() {
   const [graph, setGraph] = useState<DependencyGraph | null>(null);
@@ -17,6 +19,7 @@ export default function App() {
   const [hiddenExtensions, setHiddenExtensions] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fileTree, setFileTree] = useState<FileEntry[]>([]);
 
   const availableExtensions = useMemo(() => {
     if (!graph) return [];
@@ -27,6 +30,29 @@ export default function App() {
     return [...exts].sort();
   }, [graph]);
 
+  const graphPaths = useMemo(() => {
+    if (!graph) return new Set<string>();
+    return new Set(graph.nodes.filter((n) => !n.isExternal).map((n) => n.id));
+  }, [graph]);
+
+  const dependencyPaths = useMemo(() => {
+    if (!graph || !selectedNode) return new Set<string>();
+    const deps = new Set<string>();
+    for (const edge of graph.edges) {
+      if (edge.source === selectedNode.id) deps.add(edge.target);
+    }
+    return deps;
+  }, [graph, selectedNode]);
+
+  const dependentPaths = useMemo(() => {
+    if (!graph || !selectedNode) return new Set<string>();
+    const deps = new Set<string>();
+    for (const edge of graph.edges) {
+      if (edge.target === selectedNode.id) deps.add(edge.source);
+    }
+    return deps;
+  }, [graph, selectedNode]);
+
   const handleOpenProject = useCallback(async () => {
     const selected = await open({ directory: true, multiple: false });
     if (!selected) return;
@@ -36,16 +62,29 @@ export default function App() {
     setSelectedNode(null);
 
     try {
-      const result = await analyzeDependencies(selected);
+      const [result, tree] = await Promise.all([
+        analyzeDependencies(selected),
+        invoke<FileEntry[]>("read_file_tree", { path: selected }),
+      ]);
       setGraph(result);
+      setFileTree(tree);
       setProjectPath(selected);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setGraph(null);
+      setFileTree([]);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const handleFileSelect = useCallback(
+    (path: string) => {
+      const node = graph?.nodes.find((n) => n.id === path) ?? null;
+      setSelectedNode(node);
+    },
+    [graph],
+  );
 
   return (
     <div className={styles.app}>
@@ -71,6 +110,14 @@ export default function App() {
         }
       />
       <div className={styles.mainContent}>
+        <FileExplorer
+          fileTree={fileTree}
+          graphPaths={graphPaths}
+          selectedPath={selectedNode?.id ?? null}
+          dependencyPaths={dependencyPaths}
+          dependentPaths={dependentPaths}
+          onSelectFile={handleFileSelect}
+        />
         <div className={styles.graphPanel}>
           {error && (
             <div className={styles.errorBanner}>
@@ -96,6 +143,7 @@ export default function App() {
             showFullPath={showFullPath}
             showExternal={showExternal}
             hiddenExtensions={hiddenExtensions}
+            selectedNodeId={selectedNode?.id ?? null}
             onSelectNode={setSelectedNode}
           />
         </div>

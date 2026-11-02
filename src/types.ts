@@ -48,3 +48,10 @@ export interface DependencyGraph {
 }
 
 export type LayoutName = "cose" | "breadthfirst" | "circle" | "concentric" | "grid";
+
+export interface FileEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  children: FileEntry[];
+}

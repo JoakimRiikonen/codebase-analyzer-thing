@@ -32,6 +32,7 @@ interface GraphViewProps {
   showFullPath: boolean;
   showExternal: boolean;
   hiddenExtensions: Set<string>;
+  selectedNodeId: string | null;
   onSelectNode: (node: GraphNode | null) => void;
 }
 
@@ -41,6 +42,7 @@ export default function GraphView({
   showFullPath,
   showExternal,
   hiddenExtensions,
+  selectedNodeId,
   onSelectNode,
 }: GraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -279,6 +281,24 @@ export default function GraphView({
       }
     }
   }, [showFullPath, graph]);
+
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    if (!selectedNodeId) {
+      clearHighlights();
+      cy.nodes().unselect();
+      return;
+    }
+
+    const el = cy.getElementById(selectedNodeId);
+    if (el.length && el.isNode()) {
+      cy.nodes().unselect();
+      el.select();
+      highlightConnected(el);
+    }
+  }, [selectedNodeId, highlightConnected, clearHighlights]);
 
   return <div ref={containerRef} className={styles.container} />;
 }

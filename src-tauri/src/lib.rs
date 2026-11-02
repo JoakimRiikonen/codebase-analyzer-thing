@@ -56,6 +56,63 @@ async fn analyze_dependencies(path: String) -> Result<serde_json::Value, String>
     Ok(json)
 }
 
+#[derive(serde::Serialize)]
+struct FileEntry {
+    name: String,
+    path: String,
+    is_dir: bool,
+    children: Vec<FileEntry>,
+}
+
+fn walk_dir(dir: &std::path::Path, base: &std::path::Path) -> Vec<FileEntry> {
+    let mut entries = Vec::new();
+    let Ok(read_dir) = std::fs::read_dir(dir) else {
+        return entries;
+    };
+
+    let mut items: Vec<_> = read_dir.filter_map(|e| e.ok()).collect();
+    items.sort_by(|a, b| {
+        let a_dir = a.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        let b_dir = b.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        b_dir.cmp(&a_dir).then_with(|| a.file_name().cmp(&b.file_name()))
+    });
+
+    for entry in items {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name == "node_modules" || name == ".git" || name == "target" || name == "dist" {
+            continue;
+        }
+        let full_path = entry.path();
+        let rel_path = full_path
+            .strip_prefix(base)
+            .unwrap_or(&full_path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let is_dir = full_path.is_dir();
+        let children = if is_dir {
+            walk_dir(&full_path, base)
+        } else {
+            Vec::new()
+        };
+        entries.push(FileEntry {
+            name,
+            path: rel_path,
+            is_dir,
+            children,
+        });
+    }
+    entries
+}
+
+#[tauri::command]
+async fn read_file_tree(path: String) -> Result<Vec<FileEntry>, String> {
+    let base = std::path::Path::new(&path);
+    if !base.is_dir() {
+        return Err("Path is not a directory".to_string());
+    }
+    Ok(walk_dir(base, base))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -71,7 +128,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![analyze_dependencies])
+        .invoke_handler(tauri::generate_handler![analyze_dependencies, read_file_tree])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
 }
