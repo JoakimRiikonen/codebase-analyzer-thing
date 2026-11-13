@@ -5,6 +5,7 @@ import styles from "./App.module.css";
 import { analyzeDependencies } from "./analysis/analyzer";
 import FileExplorer from "./components/FileExplorer";
 import GraphView from "./components/GraphView";
+import CollapsiblePane from "./components/CollapsiblePane";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
 import type { DependencyGraph, FileEntry, GraphNode, LayoutName } from "./types";
@@ -17,6 +18,8 @@ export default function App() {
   const [showFullPath, setShowFullPath] = useState(false);
   const [showExternal, setShowExternal] = useState(true);
   const [hiddenExtensions, setHiddenExtensions] = useState<Set<string>>(new Set());
+  const [explorerCollapsed, setExplorerCollapsed] = useState(false);
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileTree, setFileTree] = useState<FileEntry[]>([]);
@@ -172,16 +175,24 @@ export default function App() {
         }
       />
       <div className={styles.mainContent}>
-        <FileExplorer
-          fileTree={fileTree}
-          graphPaths={graphPaths}
-          selectedPath={selectedNode?.id ?? null}
-          dependencyPaths={dependencyPaths}
-          dependentPaths={dependentPaths}
-          isPathExcluded={isPathExcluded}
-          onSelectFile={handleFileSelect}
-          onToggleExclude={handleToggleExclude}
-        />
+        <CollapsiblePane
+          title="Explorer"
+          side="left"
+          defaultWidth={260}
+          collapsed={explorerCollapsed}
+          onToggle={() => setExplorerCollapsed((v) => !v)}
+        >
+          <FileExplorer
+            fileTree={fileTree}
+            graphPaths={graphPaths}
+            selectedPath={selectedNode?.id ?? null}
+            dependencyPaths={dependencyPaths}
+            dependentPaths={dependentPaths}
+            isPathExcluded={isPathExcluded}
+            onSelectFile={handleFileSelect}
+            onToggleExclude={handleToggleExclude}
+          />
+        </CollapsiblePane>
         <div className={styles.graphPanel}>
           {error && (
             <div className={styles.errorBanner}>
@@ -211,7 +222,15 @@ export default function App() {
             onSelectNode={setSelectedNode}
           />
         </div>
-        <Sidebar graph={filteredGraph} selectedNode={selectedNode} />
+        <CollapsiblePane
+          title="Details"
+          side="right"
+          defaultWidth={280}
+          collapsed={detailsCollapsed}
+          onToggle={() => setDetailsCollapsed((v) => !v)}
+        >
+          <Sidebar graph={filteredGraph} selectedNode={selectedNode} />
+        </CollapsiblePane>
       </div>
     </div>
   );

@@ -239,6 +239,16 @@ export default function GraphView({
     sigma.refresh();
   }, [selectedNodeId]);
 
+  // Sigma only listens for window resizes, so watch the container for pane collapse/expand
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    // resize() alone clears the canvases without redrawing; scheduleRefresh() resizes and redraws
+    const observer = new ResizeObserver(() => sigmaRef.current?.scheduleRefresh());
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
   // Handle label toggle
   useEffect(() => {
     const g = graphologyRef.current;

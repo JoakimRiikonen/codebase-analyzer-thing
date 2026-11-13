@@ -125,7 +125,6 @@ export default function FileExplorer({ fileTree, graphPaths, selectedPath, depen
   if (fileTree.length === 0) {
     return (
       <div className={styles.explorer}>
-        <div className={styles.header}>Explorer</div>
         <div className={styles.empty}>No project loaded</div>
       </div>
     );
@@ -135,7 +134,6 @@ export default function FileExplorer({ fileTree, graphPaths, selectedPath, depen
 
   return (
     <div className={styles.explorer}>
-      <div className={styles.header}>Explorer</div>
       <div className={styles.tree}>
         {fileTree.map((entry) => (
           <TreeNode

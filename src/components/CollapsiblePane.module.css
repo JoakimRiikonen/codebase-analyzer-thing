@@ -1,0 +1,131 @@
+.pane {
+  position: relative;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.left {
+  border-right: 1px solid var(--border);
+}
+
+.right {
+  border-left: 1px solid var(--border);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 6px 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.toggle {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  font-size: 16px;
+  line-height: 1;
+  text-transform: none;
+}
+
+.header:hover {
+  color: var(--text-primary);
+}
+
+.header:hover .toggle {
+  background: var(--bg-tertiary);
+}
+
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  z-index: 1;
+}
+
+.left .resizeHandle {
+  right: 0;
+}
+
+.right .resizeHandle {
+  left: 0;
+}
+
+.resizeHandle:hover {
+  background: var(--accent);
+}
+
+/* Applied to <body> while dragging so the cursor stays put and text isn't selected */
+:global(body).resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.collapsed {
+  width: 28px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: none;
+  border-bottom: none;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.collapsed.left {
+  border-left: none;
+}
+
+.collapsed.right {
+  border-right: none;
+}
+
+.collapsed:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.chevron {
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.verticalTitle {
+  writing-mode: vertical-rl;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
