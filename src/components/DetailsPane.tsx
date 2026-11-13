@@ -5,6 +5,7 @@ import styles from "./DetailsPane.module.css";
 interface SidebarProps {
   graph: DependencyGraph | null;
   selectedNode: GraphNode | null;
+  onSelectPath: (path: string) => void;
 }
 
 export default function DetailsPane(props: SidebarProps) {
@@ -15,7 +16,7 @@ export default function DetailsPane(props: SidebarProps) {
   );
 }
 
-function Details({ graph, selectedNode }: SidebarProps) {
+function Details({ graph, selectedNode, onSelectPath }: SidebarProps) {
   if (!graph) {
     return (
       <aside className={styles.sidebar}>
@@ -69,9 +70,15 @@ function Details({ graph, selectedNode }: SidebarProps) {
         </h4>
         <ul className={styles.depList}>
           {dependencies.map((e) => (
-            <li key={e.target} className={e.circular ? styles.depItemCircular : styles.depItem}>
-              {e.target.split("/").pop()}
-              {e.circular && <span className={styles.badge}>circular</span>}
+            <li key={e.target}>
+              <button
+                className={e.circular ? styles.depItemCircular : styles.depItem}
+                title={e.target}
+                onClick={() => onSelectPath(e.target)}
+              >
+                {e.target.split("/").pop()}
+                {e.circular && <span className={styles.badge}>circular</span>}
+              </button>
             </li>
           ))}
         </ul>
@@ -81,9 +88,15 @@ function Details({ graph, selectedNode }: SidebarProps) {
         </h4>
         <ul className={styles.depList}>
           {dependents.map((e) => (
-            <li key={e.source} className={e.circular ? styles.depItemCircular : styles.depItem}>
-              {e.source.split("/").pop()}
-              {e.circular && <span className={styles.badge}>circular</span>}
+            <li key={e.source}>
+              <button
+                className={e.circular ? styles.depItemCircular : styles.depItem}
+                title={e.source}
+                onClick={() => onSelectPath(e.source)}
+              >
+                {e.source.split("/").pop()}
+                {e.circular && <span className={styles.badge}>circular</span>}
+              </button>
             </li>
           ))}
         </ul>

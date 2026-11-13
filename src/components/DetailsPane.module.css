@@ -80,11 +80,25 @@
 
 .depItem {
   font-size: 12px;
+  font-family: inherit;
   color: var(--text-secondary);
-  padding: 3px 0;
+  /* Horizontal padding offset by negative margin so text stays aligned with the headings */
+  padding: 3px 6px;
+  margin: 0 -6px;
+  width: calc(100% + 12px);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border: none;
+  border-radius: var(--radius);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.depItem:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .depItemCircular {

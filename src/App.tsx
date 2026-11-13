@@ -64,7 +64,7 @@ export default function App() {
             onSelectNode={setSelectedNode}
           />
         </div>
-        <DetailsPane graph={filteredGraph} selectedNode={selectedNode} />
+        <DetailsPane graph={filteredGraph} selectedNode={selectedNode} onSelectPath={selectByPath} />
       </div>
     </div>
   );
