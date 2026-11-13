@@ -3,12 +3,19 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useMemo, useState } from "react";
 import styles from "./App.module.css";
 import { analyzeDependencies } from "./analysis/analyzer";
+import AnalysisProgress from "./components/AnalysisProgress";
 import FileExplorer from "./components/FileExplorer";
 import GraphView from "./components/GraphView";
 import CollapsiblePane from "./components/CollapsiblePane";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
-import type { DependencyGraph, FileEntry, GraphNode, LayoutName } from "./types";
+import type {
+  AnalysisProgress as AnalysisProgressData,
+  DependencyGraph,
+  FileEntry,
+  GraphNode,
+  LayoutName,
+} from "./types";
 
 export default function App() {
   const [graph, setGraph] = useState<DependencyGraph | null>(null);
@@ -21,6 +28,7 @@ export default function App() {
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
   const [detailsCollapsed, setDetailsCollapsed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<AnalysisProgressData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fileTree, setFileTree] = useState<FileEntry[]>([]);
   const [excludedPaths, setExcludedPaths] = useState<Set<string>>(new Set());
@@ -93,6 +101,7 @@ export default function App() {
     if (!selected) return;
 
     setLoading(true);
+    setProgress(null);
     setError(null);
     setSelectedNode(null);
     setGraph(null);
@@ -102,7 +111,7 @@ export default function App() {
 
     try {
       const [result, tree] = await Promise.all([
-        analyzeDependencies(selected),
+        analyzeDependencies(selected, setProgress),
         invoke<FileEntry[]>("read_file_tree", { path: selected }),
       ]);
       setGraph(result);
@@ -208,8 +217,7 @@ export default function App() {
           )}
           {loading && (
             <div className={styles.emptyState}>
-              <div className={styles.spinner} />
-              <p>Analyzing dependencies...</p>
+              <AnalysisProgress progress={progress} />
             </div>
           )}
           <GraphView

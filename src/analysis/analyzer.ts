@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type {
+  AnalysisProgress,
   DependencyCruiserOutput,
   DependencyGraph,
   GraphEdge,
@@ -7,12 +9,20 @@ import type {
 } from "../types";
 
 export async function analyzeDependencies(
-  projectPath: string
+  projectPath: string,
+  onProgress?: (progress: AnalysisProgress) => void
 ): Promise<DependencyGraph> {
-  const raw = await invoke<DependencyCruiserOutput>("analyze_dependencies", {
-    path: projectPath,
-  });
-  return transformToGraph(raw);
+  const unlisten = onProgress
+    ? await listen<AnalysisProgress>("analysis-progress", (e) => onProgress(e.payload))
+    : null;
+  try {
+    const raw = await invoke<DependencyCruiserOutput>("analyze_dependencies", {
+      path: projectPath,
+    });
+    return transformToGraph(raw);
+  } finally {
+    unlisten?.();
+  }
 }
 
 function isNpmDep(dependencyTypes: string[]): boolean {

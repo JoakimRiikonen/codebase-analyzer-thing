@@ -47,7 +47,15 @@ export interface DependencyGraph {
   edges: GraphEdge[];
 }
 
-export type LayoutName = "cose" | "breadthfirst" | "circle" | "grid";
+export type AnalysisStage = "starting" | "extracting" | "analyzing" | "counting";
+
+export interface AnalysisProgress {
+  stage: AnalysisStage;
+  done: number | null;
+  total: number | null;
+}
+
+export type LayoutName ="cose" | "breadthfirst" | "circle" | "grid";
 
 export interface FileEntry {
   name: string;
