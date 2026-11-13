@@ -2,11 +2,12 @@ import { useCallback, useMemo, useState } from "react";
 import { filterGraph, getProjectFilePaths } from "../analysis/graphQueries";
 import {
   EMPTY_RULES,
+  excludeAllRules,
   isPathExcluded as isExcludedByRules,
   toggleExclusion as toggleRule,
   type ExclusionRules,
 } from "../analysis/pathExclusions";
-import type { DependencyGraph } from "../types";
+import type { DependencyGraph, FileEntry } from "../types";
 
 /**
  * The user's exclude/include rules and the graph with them applied.
@@ -28,12 +29,29 @@ export function usePathExclusions(graph: DependencyGraph | null) {
     [],
   );
 
+  const includeAll = useCallback(() => setRules(EMPTY_RULES), []);
+
+  const excludeAll = useCallback(
+    (fileTree: FileEntry[]) => setRules(excludeAllRules(fileTree.map((e) => e.path))),
+    [],
+  );
+
+  const hasExclusions = rules.excluded.size > 0;
+
   const filteredGraph = useMemo(() => {
-    if (!graph || rules.excluded.size === 0) return graph;
+    if (!graph || !hasExclusions) return graph;
     return filterGraph(graph, isPathExcluded);
-  }, [graph, rules, isPathExcluded]);
+  }, [graph, hasExclusions, isPathExcluded]);
 
   const graphPaths = useMemo(() => getProjectFilePaths(filteredGraph), [filteredGraph]);
 
-  return { isPathExcluded, toggleExclusion, filteredGraph, graphPaths };
+  return {
+    isPathExcluded,
+    toggleExclusion,
+    includeAll,
+    excludeAll,
+    hasExclusions,
+    filteredGraph,
+    graphPaths,
+  };
 }

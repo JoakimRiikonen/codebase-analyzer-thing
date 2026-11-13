@@ -12,9 +12,8 @@ import { useViewSettings } from "./hooks/useViewSettings";
 export default function App() {
   const project = useProject();
   const { settings, updateSettings } = useViewSettings();
-  const { isPathExcluded, toggleExclusion, filteredGraph, graphPaths } = usePathExclusions(
-    project.graph,
-  );
+  const exclusions = usePathExclusions(project.graph);
+  const { filteredGraph, graphPaths } = exclusions;
   const { selectedNode, setSelectedNode, selectByPath, dependencyPaths, dependentPaths } =
     useGraphSelection(project.graph, filteredGraph);
 
@@ -35,9 +34,12 @@ export default function App() {
           selectedPath={selectedNode?.id ?? null}
           dependencyPaths={dependencyPaths}
           dependentPaths={dependentPaths}
-          isPathExcluded={isPathExcluded}
+          isPathExcluded={exclusions.isPathExcluded}
           onSelectFile={selectByPath}
-          onToggleExclude={toggleExclusion}
+          onToggleExclude={exclusions.toggleExclusion}
+          hasExclusions={exclusions.hasExclusions}
+          onIncludeAll={exclusions.includeAll}
+          onExcludeAll={() => exclusions.excludeAll(project.fileTree)}
         />
         <div className={styles.graphPanel}>
           {project.error && (

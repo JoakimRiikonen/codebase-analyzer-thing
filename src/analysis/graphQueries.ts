@@ -10,14 +10,20 @@ export function getAvailableExtensions(graph: DependencyGraph | null): string[] 
   return [...exts].sort();
 }
 
-/** Removes the nodes matching `isExcluded`, along with any edges touching them. */
+/**
+ * Removes the nodes matching `isExcluded`, along with any edges touching them. External
+ * packages that were only imported by excluded files are removed too, rather than being
+ * left on the graph unconnected.
+ */
 export function filterGraph(
   graph: DependencyGraph,
   isExcluded: (path: string) => boolean,
 ): DependencyGraph {
-  const nodes = graph.nodes.filter((n) => !isExcluded(n.id));
-  const nodeIds = new Set(nodes.map((n) => n.id));
-  const edges = graph.edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
+  const kept = graph.nodes.filter((n) => !isExcluded(n.id));
+  const keptIds = new Set(kept.map((n) => n.id));
+  const edges = graph.edges.filter((e) => keptIds.has(e.source) && keptIds.has(e.target));
+  const linked = new Set(edges.flatMap((e) => [e.source, e.target]));
+  const nodes = kept.filter((n) => !n.isExternal || linked.has(n.id));
   return { nodes, edges };
 }
 

@@ -32,6 +32,11 @@ export function isPathExcluded(path: string, rules: ExclusionRules): boolean {
   return excluded;
 }
 
+/** Rules that exclude everything under the given top-level paths. */
+export function excludeAllRules(topLevelPaths: string[]): ExclusionRules {
+  return { excluded: new Set(topLevelPaths), included: new Set() };
+}
+
 /** Returns new rules with the path flipped between excluded and included. */
 export function toggleExclusion(path: string, rules: ExclusionRules): ExclusionRules {
   const excluded = new Set(rules.excluded);

@@ -20,6 +20,9 @@ interface FileExplorerProps {
   isPathExcluded: (path: string) => boolean;
   onSelectFile: (path: string) => void;
   onToggleExclude: (path: string) => void;
+  hasExclusions: boolean;
+  onIncludeAll: () => void;
+  onExcludeAll: () => void;
 }
 
 export default function FileExplorerPane(props: FileExplorerProps) {
@@ -30,7 +33,7 @@ export default function FileExplorerPane(props: FileExplorerProps) {
   );
 }
 
-function FileExplorer({ fileTree, graphPaths, selectedPath, dependencyPaths, dependentPaths, isPathExcluded, onSelectFile, onToggleExclude }: FileExplorerProps) {
+function FileExplorer({ fileTree, graphPaths, selectedPath, dependencyPaths, dependentPaths, isPathExcluded, onSelectFile, onToggleExclude, hasExclusions, onIncludeAll, onExcludeAll }: FileExplorerProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, path: string, isDir: boolean) => {
@@ -57,6 +60,14 @@ function FileExplorer({ fileTree, graphPaths, selectedPath, dependencyPaths, dep
 
   return (
     <div className={styles.explorer}>
+      <div className={styles.actions}>
+        <button className={styles.actionButton} onClick={onIncludeAll} disabled={!hasExclusions}>
+          Include all
+        </button>
+        <button className={styles.actionButton} onClick={onExcludeAll}>
+          Exclude all
+        </button>
+      </div>
       <div className={styles.tree}>
         {fileTree.map((entry) => (
           <TreeNode
@@ -69,6 +80,7 @@ function FileExplorer({ fileTree, graphPaths, selectedPath, dependencyPaths, dep
             dependentPaths={dependentPaths}
             isPathExcluded={isPathExcluded}
             onSelect={onSelectFile}
+            onToggleExclude={onToggleExclude}
             onContextMenu={handleContextMenu}
           />
         ))}
