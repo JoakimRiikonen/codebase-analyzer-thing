@@ -4,9 +4,14 @@ import type {
   AnalysisProgress,
   DependencyCruiserOutput,
   DependencyGraph,
+  FileEntry,
   GraphEdge,
   GraphNode,
 } from "../types";
+
+export function readFileTree(projectPath: string): Promise<FileEntry[]> {
+  return invoke<FileEntry[]>("read_file_tree", { path: projectPath });
+}
 
 export async function analyzeDependencies(
   projectPath: string,
