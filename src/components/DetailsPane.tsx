@@ -1,12 +1,21 @@
 import type { DependencyGraph, GraphNode } from "../types";
-import styles from "./Sidebar.module.css";
+import CollapsiblePane from "./CollapsiblePane";
+import styles from "./DetailsPane.module.css";
 
 interface SidebarProps {
   graph: DependencyGraph | null;
   selectedNode: GraphNode | null;
 }
 
-export default function Sidebar({ graph, selectedNode }: SidebarProps) {
+export default function DetailsPane(props: SidebarProps) {
+  return (
+    <CollapsiblePane title="Details" side="right" defaultWidth={280}>
+      <Details {...props} />
+    </CollapsiblePane>
+  );
+}
+
+function Details({ graph, selectedNode }: SidebarProps) {
   if (!graph) {
     return (
       <aside className={styles.sidebar}>

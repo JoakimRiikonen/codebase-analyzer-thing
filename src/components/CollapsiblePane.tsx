@@ -8,8 +8,6 @@ interface CollapsiblePaneProps {
   title: string;
   side: "left" | "right";
   defaultWidth: number;
-  collapsed: boolean;
-  onToggle: () => void;
   children: ReactNode;
 }
 
@@ -17,11 +15,11 @@ export default function CollapsiblePane({
   title,
   side,
   defaultWidth,
-  collapsed,
-  onToggle,
   children,
 }: CollapsiblePaneProps) {
   const [width, setWidth] = useState(defaultWidth);
+  const [collapsed, setCollapsed] = useState(false);
+  const onToggle = () => setCollapsed((v) => !v);
   const sideClass = side === "left" ? styles.left : styles.right;
 
   const handleResizeStart = useCallback(
