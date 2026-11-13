@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::process::{Command, Stdio};
 use tauri::{AppHandle, Emitter};
 
@@ -24,10 +24,20 @@ fn emit_progress(app: &AppHandle, stage: &'static str, done: Option<usize>, tota
 
 #[tauri::command]
 async fn analyze_dependencies(app: AppHandle, path: String) -> Result<serde_json::Value, String> {
+    emit_progress(&app, "starting", None, None);
+
+    let mut json = run_depcruise(&app, &path)?;
+    let line_counts = count_module_lines(&app, std::path::Path::new(&path), &json);
+    json["lineCounts"] = serde_json::to_value(line_counts)
+        .map_err(|e| format!("Failed to serialize line counts: {}", e))?;
+
+    Ok(json)
+}
+
+/// Runs dependency-cruiser on the project and returns its parsed JSON output.
+fn run_depcruise(app: &AppHandle, path: &str) -> Result<serde_json::Value, String> {
     let depcruise_bin = concat!(env!("CARGO_MANIFEST_DIR"), "/../node_modules/.bin/depcruise.cmd");
     let our_node_modules = concat!(env!("CARGO_MANIFEST_DIR"), "/../node_modules");
-
-    emit_progress(&app, "starting", None, None);
 
     let mut child = Command::new("cmd")
         .args([
@@ -43,37 +53,18 @@ async fn analyze_dependencies(app: AppHandle, path: String) -> Result<serde_json
             "ndjson",
             ".",
         ])
-        .current_dir(&path)
+        .current_dir(path)
         .env("NODE_PATH", our_node_modules)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to run dependency-cruiser: {}", e))?;
 
-    // Progress arrives on stderr as ndjson while the JSON result goes to stdout, so read
-    // stderr on its own thread. Each progress line names the step that just finished.
+    // Progress arrives on stderr while the JSON result goes to stdout, so read stderr on
+    // its own thread to keep either pipe from filling up and blocking the process
     let stderr = child.stderr.take().expect("stderr is piped");
     let progress_app = app.clone();
-    let stderr_reader = std::thread::spawn(move || {
-        let mut errors = String::new();
-        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-            let finished = serde_json::from_str::<serde_json::Value>(&line)
-                .ok()
-                .and_then(|v| v.get("message")?.as_str().map(String::from));
-            match finished.as_deref() {
-                Some("startup: get resolve options") => {
-                    emit_progress(&progress_app, "extracting", None, None)
-                }
-                Some("extract") => emit_progress(&progress_app, "analyzing", None, None),
-                Some(_) => {}
-                None => {
-                    errors.push_str(&line);
-                    errors.push('\n');
-                }
-            }
-        }
-        errors
-    });
+    let stderr_reader = std::thread::spawn(move || forward_depcruise_progress(&progress_app, stderr));
 
     let output = child
         .wait_with_output()
@@ -85,32 +76,57 @@ async fn analyze_dependencies(app: AppHandle, path: String) -> Result<serde_json
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut json: serde_json::Value =
-        serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse output: {}", e))?;
+    serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse output: {}", e))
+}
 
-    let base = std::path::Path::new(&path);
-    let mut line_counts: HashMap<String, usize> = HashMap::new();
-    if let Some(modules) = json.get("modules").and_then(|m| m.as_array()) {
-        let total = modules.len();
-        // Roughly 100 updates over the whole stage, so large projects don't flood the event bus
-        let step = (total / 100).max(1);
-        for (i, module) in modules.iter().enumerate() {
-            if i % step == 0 {
-                emit_progress(&app, "counting", Some(i), Some(total));
-            }
-            if let Some(source) = module.get("source").and_then(|s| s.as_str()) {
-                let file_path = base.join(source);
-                if file_path.exists() {
-                    line_counts.insert(source.to_string(), count_lines(&file_path));
-                }
+/// Reads dependency-cruiser's ndjson progress lines and emits the matching stage events.
+/// Each line names the step that just finished. Returns any non-progress output (errors).
+fn forward_depcruise_progress(app: &AppHandle, stderr: impl Read) -> String {
+    let mut errors = String::new();
+    for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+        let finished = serde_json::from_str::<serde_json::Value>(&line)
+            .ok()
+            .and_then(|v| v.get("message")?.as_str().map(String::from));
+        match finished.as_deref() {
+            Some("startup: get resolve options") => emit_progress(app, "extracting", None, None),
+            Some("extract") => emit_progress(app, "analyzing", None, None),
+            Some(_) => {}
+            None => {
+                errors.push_str(&line);
+                errors.push('\n');
             }
         }
-        emit_progress(&app, "counting", Some(total), Some(total));
     }
-    json["lineCounts"] = serde_json::to_value(line_counts)
-        .map_err(|e| format!("Failed to serialize line counts: {}", e))?;
+    errors
+}
 
-    Ok(json)
+/// Counts lines for every module dependency-cruiser found, keyed by its source path.
+fn count_module_lines(
+    app: &AppHandle,
+    base: &std::path::Path,
+    json: &serde_json::Value,
+) -> HashMap<String, usize> {
+    let mut line_counts = HashMap::new();
+    let Some(modules) = json.get("modules").and_then(|m| m.as_array()) else {
+        return line_counts;
+    };
+
+    let total = modules.len();
+    // Roughly 100 updates over the whole stage, so large projects don't flood the event bus
+    let step = (total / 100).max(1);
+    for (i, module) in modules.iter().enumerate() {
+        if i % step == 0 {
+            emit_progress(app, "counting", Some(i), Some(total));
+        }
+        if let Some(source) = module.get("source").and_then(|s| s.as_str()) {
+            let file_path = base.join(source);
+            if file_path.exists() {
+                line_counts.insert(source.to_string(), count_lines(&file_path));
+            }
+        }
+    }
+    emit_progress(app, "counting", Some(total), Some(total));
+    line_counts
 }
 
 #[derive(serde::Serialize)]
