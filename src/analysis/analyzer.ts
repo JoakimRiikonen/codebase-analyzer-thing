@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type {
   AnalysisProgress,
+  DependencyCruiserDependency,
   DependencyCruiserOutput,
   DependencyGraph,
   FileEntry,
@@ -34,6 +35,16 @@ function isNpmDep(dependencyTypes: string[]): boolean {
   return dependencyTypes.some((t) => t === "npm" || t === "npm-dev" || t === "npm-optional");
 }
 
+/**
+ * Whether the dependency points at a package rather than a project file. Imports of a bare
+ * package name that couldn't be resolved count too; unresolved relative imports ("./missing")
+ * don't, since they point at a missing project file.
+ */
+function isExternalDep(dep: DependencyCruiserDependency): boolean {
+  if (isNpmDep(dep.dependencyTypes)) return true;
+  return !!dep.couldNotResolve && !dep.module.startsWith(".") && !dep.module.startsWith("/");
+}
+
 function getPackageName(module: string): string {
   if (module.startsWith("@")) {
     const parts = module.split("/");
@@ -50,7 +61,9 @@ function transformToGraph(output: DependencyCruiserOutput): DependencyGraph {
 
   for (const mod of output.modules) {
     const source = mod.source;
-    if (source.startsWith("node_modules")) continue;
+    // Unresolved modules aren't real files, only import targets; the dependency loop
+    // below decides whether they're packages or missing project files
+    if (source.startsWith("node_modules") || mod.couldNotResolve) continue;
 
     if (!nodeMap.has(source)) {
       nodeMap.set(source, makeNode(source, false, lineCounts[source] ?? 0));
@@ -59,7 +72,7 @@ function transformToGraph(output: DependencyCruiserOutput): DependencyGraph {
     for (const dep of mod.dependencies) {
       if (!dep.resolved && !dep.module) continue;
 
-      const external = isNpmDep(dep.dependencyTypes);
+      const external = isExternalDep(dep);
       const target = external ? getPackageName(dep.module) : dep.resolved;
       if (!target) continue;
 

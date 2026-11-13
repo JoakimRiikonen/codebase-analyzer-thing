@@ -36,19 +36,27 @@ async fn analyze_dependencies(app: AppHandle, path: String) -> Result<serde_json
 
 /// Runs dependency-cruiser on the project and returns its parsed JSON output.
 fn run_depcruise(app: &AppHandle, path: &str) -> Result<serde_json::Value, String> {
-    let depcruise_bin = concat!(env!("CARGO_MANIFEST_DIR"), "/../node_modules/.bin/depcruise.cmd");
+    let depcruise_script = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../node_modules/dependency-cruiser/bin/dependency-cruiser.mjs"
+    );
     let our_node_modules = concat!(env!("CARGO_MANIFEST_DIR"), "/../node_modules");
 
-    let mut child = Command::new("cmd")
+    // Run the script with node directly rather than through `cmd /C` and the .cmd shim:
+    // cmd would treat characters like | and ^ in the arguments (e.g. the regex below) as
+    // shell syntax
+    let mut child = Command::new("node")
         .args([
-            "/C",
-            depcruise_bin,
+            depcruise_script,
             "--output-type",
             "json",
             "--ts-pre-compilation-deps",
             "--no-config",
             "--do-not-follow",
             "node_modules",
+            // Skip build output, matching the folders read_file_tree leaves out of the explorer
+            "--exclude",
+            "(^|/)(dist|target)/",
             "--progress",
             "ndjson",
             ".",

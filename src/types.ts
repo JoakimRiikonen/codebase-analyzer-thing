@@ -1,6 +1,7 @@
 export interface DependencyCruiserModule {
   source: string;
   dependencies: DependencyCruiserDependency[];
+  couldNotResolve?: boolean;
 }
 
 export interface DependencyCruiserDependency {
@@ -9,6 +10,7 @@ export interface DependencyCruiserDependency {
   dependencyTypes: string[];
   dynamic: boolean;
   circular?: boolean;
+  couldNotResolve?: boolean;
 }
 
 export interface DependencyCruiserOutput {
