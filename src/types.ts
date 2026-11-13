@@ -57,6 +57,13 @@ export interface AnalysisProgress {
 
 export type LayoutName ="cose" | "breadthfirst" | "circle" | "grid";
 
+export interface ViewSettings {
+  layout: LayoutName;
+  showFullPath: boolean;
+  showExternal: boolean;
+  hiddenExtensions: Set<string>;
+}
+
 export interface FileEntry {
   name: string;
   path: string;

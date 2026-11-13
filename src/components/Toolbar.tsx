@@ -1,4 +1,4 @@
-import type { LayoutName } from "../types";
+import type { LayoutName, ViewSettings } from "../types";
 import styles from "./Toolbar.module.css";
 
 const LAYOUTS: { value: LayoutName; label: string }[] = [
@@ -11,32 +11,27 @@ const LAYOUTS: { value: LayoutName; label: string }[] = [
 interface ToolbarProps {
   projectPath: string | null;
   loading: boolean;
-  layout: LayoutName;
-  showFullPath: boolean;
-  showExternal: boolean;
+  settings: ViewSettings;
   availableExtensions: string[];
-  hiddenExtensions: Set<string>;
   onOpenProject: () => void;
-  onLayoutChange: (layout: LayoutName) => void;
-  onToggleFullPath: () => void;
-  onToggleExternal: () => void;
-  onToggleExtension: (ext: string) => void;
+  onSettingsChange: (changes: Partial<ViewSettings>) => void;
 }
 
 export default function Toolbar({
   projectPath,
   loading,
-  layout,
-  showFullPath,
-  showExternal,
+  settings,
   availableExtensions,
-  hiddenExtensions,
   onOpenProject,
-  onLayoutChange,
-  onToggleFullPath,
-  onToggleExternal,
-  onToggleExtension,
+  onSettingsChange,
 }: ToolbarProps) {
+  const toggleExtension = (ext: string) => {
+    const next = new Set(settings.hiddenExtensions);
+    if (next.has(ext)) next.delete(ext);
+    else next.add(ext);
+    onSettingsChange({ hiddenExtensions: next });
+  };
+
   return (
     <header className={styles.toolbar}>
       <div className={styles.left}>
@@ -49,16 +44,16 @@ export default function Toolbar({
         <label className={styles.toggle}>
           <input
             type="checkbox"
-            checked={showFullPath}
-            onChange={onToggleFullPath}
+            checked={settings.showFullPath}
+            onChange={() => onSettingsChange({ showFullPath: !settings.showFullPath })}
           />
           Full paths
         </label>
         <label className={styles.toggle}>
           <input
             type="checkbox"
-            checked={showExternal}
-            onChange={onToggleExternal}
+            checked={settings.showExternal}
+            onChange={() => onSettingsChange({ showExternal: !settings.showExternal })}
           />
           External deps
         </label>
@@ -69,8 +64,8 @@ export default function Toolbar({
               <label key={ext} className={styles.extToggle}>
                 <input
                   type="checkbox"
-                  checked={!hiddenExtensions.has(ext)}
-                  onChange={() => onToggleExtension(ext)}
+                  checked={!settings.hiddenExtensions.has(ext)}
+                  onChange={() => toggleExtension(ext)}
                 />
                 .{ext}
               </label>
@@ -79,8 +74,8 @@ export default function Toolbar({
         )}
         <select
           className={styles.layoutSelect}
-          value={layout}
-          onChange={(e) => onLayoutChange(e.target.value as LayoutName)}
+          value={settings.layout}
+          onChange={(e) => onSettingsChange({ layout: e.target.value as LayoutName })}
         >
           {LAYOUTS.map((l) => (
             <option key={l.value} value={l.value}>

@@ -13,17 +13,19 @@ import type {
   DependencyGraph,
   FileEntry,
   GraphNode,
-  LayoutName,
+  ViewSettings,
 } from "./types";
 
 export default function App() {
   const [graph, setGraph] = useState<DependencyGraph | null>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [projectPath, setProjectPath] = useState<string | null>(null);
-  const [layout, setLayout] = useState<LayoutName>("cose");
-  const [showFullPath, setShowFullPath] = useState(false);
-  const [showExternal, setShowExternal] = useState(true);
-  const [hiddenExtensions, setHiddenExtensions] = useState<Set<string>>(new Set());
+  const [settings, setSettings] = useState<ViewSettings>({
+    layout: "cose",
+    showFullPath: false,
+    showExternal: true,
+    hiddenExtensions: new Set(),
+  });
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<AnalysisProgressData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -162,23 +164,10 @@ export default function App() {
       <Toolbar
         projectPath={projectPath}
         loading={loading}
-        layout={layout}
-        showFullPath={showFullPath}
-        showExternal={showExternal}
+        settings={settings}
         availableExtensions={availableExtensions}
-        hiddenExtensions={hiddenExtensions}
         onOpenProject={handleOpenProject}
-        onLayoutChange={setLayout}
-        onToggleFullPath={() => setShowFullPath((v) => !v)}
-        onToggleExternal={() => setShowExternal((v) => !v)}
-        onToggleExtension={(ext) =>
-          setHiddenExtensions((prev) => {
-            const next = new Set(prev);
-            if (next.has(ext)) next.delete(ext);
-            else next.add(ext);
-            return next;
-          })
-        }
+        onSettingsChange={(changes) => setSettings((prev) => ({ ...prev, ...changes }))}
       />
       <div className={styles.mainContent}>
         <FileExplorerPane
@@ -211,10 +200,7 @@ export default function App() {
           )}
           <GraphView
             graph={filteredGraph}
-            layout={layout}
-            showFullPath={showFullPath}
-            showExternal={showExternal}
-            hiddenExtensions={hiddenExtensions}
+            settings={settings}
             selectedNodeId={selectedNode?.id ?? null}
             onSelectNode={setSelectedNode}
           />

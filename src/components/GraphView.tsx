@@ -1,29 +1,26 @@
 import { useEffect, useRef } from "react";
 import type Sigma from "sigma";
 import type Graph from "graphology";
-import type { DependencyGraph, GraphNode, LayoutName } from "../types";
+import type { DependencyGraph, GraphNode, ViewSettings } from "../types";
 import { applyLayout, buildGraphology, createSigma, type Highlight } from "./graph";
 import styles from "./GraphView.module.css";
 
 interface GraphViewProps {
   graph: DependencyGraph | null;
-  layout: LayoutName;
-  showFullPath: boolean;
-  showExternal: boolean;
-  hiddenExtensions: Set<string>;
+  settings: ViewSettings;
   selectedNodeId: string | null;
   onSelectNode: (node: GraphNode | null) => void;
 }
 
 export default function GraphView({
   graph,
-  layout,
-  showFullPath,
-  showExternal,
-  hiddenExtensions,
+  settings,
   selectedNodeId,
   onSelectNode,
 }: GraphViewProps) {
+  // Effects depend on these individual fields rather than `settings`, so e.g. toggling
+  // full paths only relabels nodes instead of rebuilding the graph and rerunning the layout
+  const { layout, showFullPath, showExternal, hiddenExtensions } = settings;
   const containerRef = useRef<HTMLDivElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
   const graphologyRef = useRef<Graph | null>(null);
