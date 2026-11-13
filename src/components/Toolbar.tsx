@@ -5,7 +5,6 @@ const LAYOUTS: { value: LayoutName; label: string }[] = [
   { value: "cose", label: "Force-Directed" },
   { value: "breadthfirst", label: "Hierarchical" },
   { value: "circle", label: "Circle" },
-  { value: "concentric", label: "Concentric" },
   { value: "grid", label: "Grid" },
 ];
 

@@ -47,7 +47,7 @@ export interface DependencyGraph {
   edges: GraphEdge[];
 }
 
-export type LayoutName = "cose" | "breadthfirst" | "circle" | "concentric" | "grid";
+export type LayoutName = "cose" | "breadthfirst" | "circle" | "grid";
 
 export interface FileEntry {
   name: string;

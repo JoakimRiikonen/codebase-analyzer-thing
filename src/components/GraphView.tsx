@@ -169,9 +169,9 @@ export default function GraphView({
         if (!hl) return data;
         const source = g.source(edge);
         const target = g.target(edge);
-        if (source === hl.node) return { ...data, color: "#ef4444", size: 2 };
-        if (target === hl.node) return { ...data, color: "#22c55e", size: 2 };
-        return { ...data, visibility: "hidden" };
+        if (source === hl.node) return { ...data, color: "#ef4444", size: 2, zIndex: 1 };
+        if (target === hl.node) return { ...data, color: "#22c55e", size: 2, zIndex: 1 };
+        return { ...data, color: "#2a2a3a", zIndex: 0 };
       },
     });
 
@@ -195,8 +195,6 @@ export default function GraphView({
       settings.slowDown = 5;
       forceAtlas2.assign(g, { settings, iterations: Math.min(500, Math.max(100, g.order)) });
     } else if (layout === "circle") {
-      circular.assign(g);
-    } else if (layout === "concentric") {
       circular.assign(g);
     } else if (layout === "grid") {
       const nodes = g.nodes();

@@ -17,109 +17,68 @@ export default function Sidebar({ graph, selectedNode }: SidebarProps) {
     );
   }
 
-  const circularEdges = graph.edges.filter((e) => e.circular);
-  const stats = {
-    files: graph.nodes.length,
-    dependencies: graph.edges.length,
-    circularDeps: circularEdges.length,
-  };
+  if (!selectedNode) {
+    return (
+      <aside className={styles.sidebar}>
+        <div className={styles.empty}>
+          <p>Please select a node to see details</p>
+        </div>
+      </aside>
+    );
+  }
+
+  const dependencies = graph.edges.filter((e) => e.source === selectedNode.id);
+  const dependents = graph.edges.filter((e) => e.target === selectedNode.id);
 
   return (
     <aside className={styles.sidebar}>
       <section className={styles.section}>
-        <h3 className={styles.sectionTitle}>Project Stats</h3>
-        <div className={styles.statGrid}>
-          <div className={styles.stat}>
-            <span className={styles.statValue}>{stats.files}</span>
-            <span className={styles.statLabel}>Files</span>
+        <h3 className={styles.sectionTitle}>Selected File</h3>
+        <div className={styles.nodeDetails}>
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>Name</span>
+            <span className={styles.detailValue}>{selectedNode.label}</span>
           </div>
-          <div className={styles.stat}>
-            <span className={styles.statValue}>{stats.dependencies}</span>
-            <span className={styles.statLabel}>Dependencies</span>
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>Path</span>
+            <span className={styles.detailValuePath}>{selectedNode.id}</span>
           </div>
-          <div className={styles.stat}>
-            <span className={styles.statValueCircular}>{stats.circularDeps}</span>
-            <span className={styles.statLabel}>Circular</span>
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>Directory</span>
+            <span className={styles.detailValue}>{selectedNode.directory || "/"}</span>
           </div>
+          {selectedNode.lineCount > 0 && (
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>Lines</span>
+              <span className={styles.detailValue}>{selectedNode.lineCount}</span>
+            </div>
+          )}
         </div>
+
+        <h4 className={styles.subTitle}>
+          Dependencies <span className={styles.count}>{dependencies.length}</span>
+        </h4>
+        <ul className={styles.depList}>
+          {dependencies.map((e) => (
+            <li key={e.target} className={e.circular ? styles.depItemCircular : styles.depItem}>
+              {e.target.split("/").pop()}
+              {e.circular && <span className={styles.badge}>circular</span>}
+            </li>
+          ))}
+        </ul>
+
+        <h4 className={styles.subTitle}>
+          Dependents <span className={styles.count}>{dependents.length}</span>
+        </h4>
+        <ul className={styles.depList}>
+          {dependents.map((e) => (
+            <li key={e.source} className={e.circular ? styles.depItemCircular : styles.depItem}>
+              {e.source.split("/").pop()}
+              {e.circular && <span className={styles.badge}>circular</span>}
+            </li>
+          ))}
+        </ul>
       </section>
-
-      {selectedNode && (
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Selected File</h3>
-          <div className={styles.nodeDetails}>
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>Name</span>
-              <span className={styles.detailValue}>{selectedNode.label}</span>
-            </div>
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>Path</span>
-              <span className={styles.detailValuePath}>{selectedNode.id}</span>
-            </div>
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>Directory</span>
-              <span className={styles.detailValue}>{selectedNode.directory || "/"}</span>
-            </div>
-            {selectedNode.lineCount > 0 && (
-              <div className={styles.detailRow}>
-                <span className={styles.detailLabel}>Lines</span>
-                <span className={styles.detailValue}>{selectedNode.lineCount}</span>
-              </div>
-            )}
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>Imports</span>
-              <span className={styles.detailValue}>{selectedNode.outDegree}</span>
-            </div>
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>Imported by</span>
-              <span className={styles.detailValue}>{selectedNode.inDegree}</span>
-            </div>
-          </div>
-
-          <h4 className={styles.subTitle}>Dependencies</h4>
-          <ul className={styles.depList}>
-            {graph.edges
-              .filter((e) => e.source === selectedNode.id)
-              .map((e) => (
-                <li key={e.target} className={e.circular ? styles.depItemCircular : styles.depItem}>
-                  {e.target.split("/").pop()}
-                  {e.circular && <span className={styles.badge}>circular</span>}
-                </li>
-              ))}
-          </ul>
-
-          <h4 className={styles.subTitle}>Dependents</h4>
-          <ul className={styles.depList}>
-            {graph.edges
-              .filter((e) => e.target === selectedNode.id)
-              .map((e) => (
-                <li key={e.source} className={e.circular ? styles.depItemCircular : styles.depItem}>
-                  {e.source.split("/").pop()}
-                  {e.circular && <span className={styles.badge}>circular</span>}
-                </li>
-              ))}
-          </ul>
-        </section>
-      )}
-
-      {!selectedNode && (
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Most Connected</h3>
-          <ul className={styles.depList}>
-            {[...graph.nodes]
-              .sort((a, b) => b.inDegree + b.outDegree - (a.inDegree + a.outDegree))
-              .slice(0, 10)
-              .map((n) => (
-                <li key={n.id} className={styles.depItem}>
-                  {n.label}
-                  <span className={styles.badgeNeutral}>
-                    {n.inDegree + n.outDegree}
-                  </span>
-                </li>
-              ))}
-          </ul>
-        </section>
-      )}
     </aside>
   );
 }

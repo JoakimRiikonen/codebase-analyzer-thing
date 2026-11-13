@@ -34,32 +34,16 @@
   margin: 12px 0 6px;
 }
 
-.statGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.stat {
-  text-align: center;
-}
-
-.statValue {
-  display: block;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.statValueCircular {
-  composes: statValue;
-  color: var(--danger);
-}
-
-.statLabel {
-  font-size: 11px;
+.count {
+  font-weight: 400;
   color: var(--text-muted);
+  margin-left: 4px;
 }
+
+
+
+
+
 
 .nodeDetails {
   display: flex;
@@ -118,8 +102,3 @@
   color: var(--danger);
 }
 
-.badgeNeutral {
-  composes: badge;
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
-}
